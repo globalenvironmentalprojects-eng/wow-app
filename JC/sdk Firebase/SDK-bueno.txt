@@ -1,0 +1,28 @@
+
+Si ya usas npm y un agrupador de módulos como Webpack o Rollup, puedes ejecutar el siguiente comando para instalar la versión más reciente del SDK (más información):
+
+npm install firebase
+
+
+Luego, inicializa Firebase y comienza a usar los SDK de los productos que quieres utilizar.
+
+
+--------------------------------------------------
+
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyDr9JM-C4M6e8h72jcituqLouIe2lohhZU",
+  authDomain: "wow-wine.firebaseapp.com",
+  projectId: "wow-wine",
+  storageBucket: "wow-wine.firebasestorage.app",
+  messagingSenderId: "799292221607",
+  appId: "1:799292221607:web:45173fe9ce573261b45382"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
