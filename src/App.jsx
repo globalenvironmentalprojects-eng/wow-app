@@ -1053,7 +1053,7 @@ function AdminPanel({ onLogout }) {
                 const aw=wines.find(w=>w.id===active?.wineId);
                 return(
                   <div key={qr.id} className="qr-print-card">
-                      <QRCode value={`${DOMAIN}/v/${qr.code}`} size={120} style={{margin:"0 auto 10px",display:"block"}}/>
+                      <QRCode value={`${DOMAIN}/?code=${qr.code}`} size={120} style={{margin:"0 auto 10px",display:"block"}}/>
                       <div className="qr-print-code">{qr.numericCode||qr.code}</div>
                       <div className="qr-print-label">{qr.label}</div>
                     </div>
@@ -1081,7 +1081,7 @@ function AdminPanel({ onLogout }) {
                       <div className="qr-lbl">{qr.label}</div>
                       <div className="qr-num">{qr.numericCode||"—"}</div>
                     </div>
-                    <div className="qr-url">{DOMAIN}/v/{qr.code}</div>
+                    <div className="qr-url">{DOMAIN}/?code={qr.code}</div>
                     <div style={{display:"flex",alignItems:"center",gap:6,flex:1}}>
                       <div className={`sdot ${active?"sdot-on":"sdot-off"}`}/>
                       <span style={{fontSize:11,color:active?"var(--neon)":"var(--text-muted)",fontFamily:"DM Mono,monospace"}}>
@@ -1222,8 +1222,8 @@ export default function App() {
   const isAdminRoute = window.location.pathname.includes("/admin") || window.location.search.includes("admin");
   // Detectar código QR de la URL: /v/CODIGO
 const urlPath = window.location.pathname;
-const qrFromUrl = urlPath.startsWith("/v/") ? urlPath.slice(3) : null;
-console.log("URL path:", urlPath);
+const urlParams = new URLSearchParams(window.location.search);
+const qrFromUrl = urlParams.get("code");
 console.log("QR from URL:", qrFromUrl);
 
   const [screen, setScreen] = useState("age");
