@@ -26,24 +26,23 @@ function calcCorrect(a, s, w) {
 }
 
 async function getActiveTastingByCode(code) {
-  // Try by QR code field
+  console.log("Buscando código:", code);
   const qrSnap = await getDocs(query(collection(db,"qr_codes"), where("code","==",code)));
-  // Also try by numeric code
   const numSnap = await getDocs(query(collection(db,"qr_codes"), where("numericCode","==",code)));
+  console.log("Por code:", qrSnap.size, "Por numericCode:", numSnap.size);
   const qrDoc = qrSnap.docs[0] || numSnap.docs[0];
   if (!qrDoc) return null;
   const qr = { id: qrDoc.id, ...qrDoc.data() };
-
+  console.log("QR encontrado:", qr);
   const tSnap = await getDocs(query(collection(db,"tastings"),
     where("qrId","==",qr.id), where("active","==",true)));
+  console.log("Tastings activos:", tSnap.size);
   if (tSnap.empty) return null;
   const tasting = { id: tSnap.docs[0].id, ...tSnap.docs[0].data() };
-
   const wineSnap = await getDocs(collection(db,"wines"));
   const wineDoc = wineSnap.docs.find(d => d.id === tasting.wineId);
   if (!wineDoc) return null;
   const wine = { id: wineDoc.id, ...wineDoc.data() };
-
   return { tasting, wine, qr, steps: tasting.steps || DEFAULT_STEPS };
 }
 
