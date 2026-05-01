@@ -389,7 +389,9 @@ const css = `
 
   /* QR Print */
   .qr-print-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:16px;}
-  .qr-print-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;text-align:center;}
+  .qr-print-card{background:#ffffff;border:1px solid #ddd;border-radius:var(--radius-sm);padding:16px;text-align:center;}
+.qr-print-code{font-family:'DM Mono',monospace;font-size:24px;font-weight:700;color:#000000;letter-spacing:4px;margin-bottom:6px;}
+.qr-print-label{font-family:'DM Mono',monospace;font-size:10px;color:#666666;letter-spacing:1px;}
   .qr-print-code{font-family:'DM Mono',monospace;font-size:24px;font-weight:700;color:var(--neon);letter-spacing:4px;margin-bottom:6px;}
   .qr-print-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--text-muted);letter-spacing:1px;}
 
