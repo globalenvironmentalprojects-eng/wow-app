@@ -50,166 +50,79 @@ async function getActiveTastingByCode(code) {
 // ─── QR SCANNER COMPONENT ─────────────────────────────────────────────────────
 function QRScanner({ onResult, onClose }) {
   const videoRef = useRef(null);
-  const [error, setError] = useState(null);
   const [manualCode, setManualCode] = useState("");
-  const [mode, setMode] = useState("camera"); // camera | manual
-  const streamRef = useRef(null);
+  const [mode, setMode] = useState("camera");
+  const controlsRef = useRef(null);
 
   useEffect(() => {
     if (mode !== "camera") return;
     let active = true;
 
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" }
-        });
-        if (!active) { stream.getTracks().forEach(t => t.stop()); return; }
-        streamRef.current = stream;
-        if (videoRef.current) videoRef.current.srcObject = stream;
-
-        // Use BarcodeDetector if available
-        if ("BarcodeDetector" in window) {
-          const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
-          const scan = async () => {
-            if (!active || !videoRef.current) return;
-            try {
-              const codes = await detector.detect(videoRef.current);
-              if (codes.length > 0) {
-                onResult(codes[0].rawValue);
-                return;
-              }
-            } catch {}
-            if (active) requestAnimationFrame(scan);
-          };
-          videoRef.current.onloadedmetadata = scan;
+    import("@zxing/library").then(({ BrowserQRCodeReader }) => {
+      const reader = new BrowserQRCodeReader();
+      reader.decodeFromVideoDevice(null, videoRef.current, (result, err) => {
+        if (result && active) {
+          active = false;
+          onResult(result.getText());
         }
-      } catch (e) {
-        setError("No se puede acceder a la cámara. Usa el código manual.");
-        setMode("manual");
-      }
-    }
-    startCamera();
+      }).then(controls => {
+        controlsRef.current = controls;
+      }).catch(() => setMode("manual"));
+    });
+
     return () => {
       active = false;
-      streamRef.current?.getTracks().forEach(t => t.stop());
+      controlsRef.current?.stop();
     };
   }, [mode]);
 
-  const stopCamera = () => {
-    streamRef.current?.getTracks().forEach(t => t.stop());
+  const close = () => {
+    controlsRef.current?.stop();
     onClose();
   };
 
   return (
-    <div style={{
-      position:"fixed", inset:0, background:"#000", zIndex:200,
-      display:"flex", flexDirection:"column", alignItems:"center"
-    }}>
-      {/* Header */}
-      <div style={{
-        width:"100%", maxWidth:420, padding:"20px 22px 16px",
-        display:"flex", alignItems:"center", justifyContent:"space-between",
-        background:"rgba(0,0,0,0.8)", backdropFilter:"blur(10px)"
-      }}>
-        <div style={{fontFamily:"Fraunces,serif", fontSize:18, fontWeight:800, color:"var(--neon)", letterSpacing:4}}>WOW</div>
-        <button onClick={stopCamera} style={{
-          background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)",
-          color:"white", padding:"8px 16px", borderRadius:8, cursor:"pointer",
-          fontFamily:"DM Mono,monospace", fontSize:12
-        }}>✕ Cerrar</button>
+    <div style={{position:"fixed",inset:0,background:"#000",zIndex:200,display:"flex",flexDirection:"column",alignItems:"center"}}>
+      <div style={{width:"100%",maxWidth:420,padding:"20px 22px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(0,0,0,0.8)"}}>
+        <div style={{fontFamily:"Fraunces,serif",fontSize:18,fontWeight:800,color:"var(--neon)",letterSpacing:4}}>WOW</div>
+        <button onClick={close} style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",color:"white",padding:"8px 16px",borderRadius:8,cursor:"pointer",fontFamily:"DM Mono,monospace",fontSize:12}}>✕ Cerrar</button>
       </div>
 
-      {/* Mode tabs */}
-      <div style={{
-        display:"flex", gap:4, background:"rgba(255,255,255,0.06)",
-        border:"1px solid rgba(255,255,255,0.1)", borderRadius:10,
-        padding:4, margin:"0 0 16px", width:"calc(100% - 44px)", maxWidth:376
-      }}>
-        {[["camera","📷 Cámara"],["manual","⌨️ Código manual"]].map(([m,l]) => (
-          <button key={m} onClick={() => setMode(m)} style={{
-            flex:1, background:mode===m?"var(--neon)":"none", border:"none",
-            color:mode===m?"#000":"rgba(255,255,255,0.6)",
-            padding:"9px 6px", borderRadius:7, cursor:"pointer",
-            fontFamily:"Fraunces,serif", fontSize:12, fontWeight:700
-          }}>{l}</button>
+      <div style={{display:"flex",gap:4,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:10,padding:4,margin:"0 0 16px",width:"calc(100% - 44px)",maxWidth:376}}>
+        {[["camera","📷 Cámara"],["manual","⌨️ Manual"]].map(([m,l])=>(
+          <button key={m} onClick={()=>setMode(m)} style={{flex:1,background:mode===m?"var(--neon)":"none",border:"none",color:mode===m?"#000":"rgba(255,255,255,0.6)",padding:"9px 6px",borderRadius:7,cursor:"pointer",fontFamily:"Fraunces,serif",fontSize:12,fontWeight:700}}>{l}</button>
         ))}
       </div>
 
-      {mode === "camera" ? (
-        <div style={{flex:1, width:"100%", maxWidth:420, position:"relative", overflow:"hidden"}}>
-          <video ref={videoRef} autoPlay playsInline muted
-            style={{width:"100%", height:"100%", objectFit:"cover"}}/>
-          {/* Viewfinder overlay */}
-          <div style={{
-            position:"absolute", inset:0, display:"flex",
-            alignItems:"center", justifyContent:"center"
-          }}>
-            <div style={{
-              width:220, height:220, position:"relative"
-            }}>
-              {/* Corner marks */}
-              {[["0,0","top,left"],["0,auto","top,right"],["auto,0","bottom,left"],["auto,auto","bottom,right"]].map(([pos, label], i) => {
-                const [t,l] = pos.split(",");
-                const corners = [
-                  {top:0, left:0, borderTop:"3px solid var(--neon)", borderLeft:"3px solid var(--neon)"},
-                  {top:0, right:0, borderTop:"3px solid var(--neon)", borderRight:"3px solid var(--neon)"},
-                  {bottom:0, left:0, borderBottom:"3px solid var(--neon)", borderLeft:"3px solid var(--neon)"},
-                  {bottom:0, right:0, borderBottom:"3px solid var(--neon)", borderRight:"3px solid var(--neon)"},
-                ];
-                return <div key={i} style={{
-                  position:"absolute", width:24, height:24, ...corners[i]
-                }}/>;
-              })}
-              <div style={{
-                position:"absolute", inset:0,
-                background:"rgba(0,255,120,0.03)",
-                border:"1px solid rgba(0,255,120,0.2)"
-              }}/>
-            </div>
+      {mode==="camera"&&(
+        <div style={{flex:1,width:"100%",maxWidth:420,position:"relative",overflow:"hidden"}}>
+          <video ref={videoRef} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
+            <div style={{width:220,height:220,border:"2px solid var(--neon)",boxShadow:"0 0 0 9999px rgba(0,0,0,0.5)",borderRadius:4}}/>
           </div>
-          <div style={{
-            position:"absolute", bottom:20, left:0, right:0,
-            textAlign:"center", color:"rgba(255,255,255,0.7)",
-            fontFamily:"DM Mono,monospace", fontSize:11, letterSpacing:1
-          }}>APUNTA AL CÓDIGO QR DE LA BOTELLA</div>
+          <div style={{position:"absolute",bottom:20,left:0,right:0,textAlign:"center",color:"rgba(255,255,255,0.6)",fontFamily:"DM Mono,monospace",fontSize:11,letterSpacing:1}}>
+            APUNTA AL CÓDIGO QR
+          </div>
         </div>
-      ) : (
-        <div style={{
-          flex:1, width:"100%", maxWidth:420, padding:"0 22px",
-          display:"flex", flexDirection:"column", justifyContent:"center"
-        }}>
-          <div style={{
-            fontFamily:"Fraunces,serif", fontSize:28, fontWeight:800,
-            color:"white", marginBottom:8
-          }}>Introduce el código</div>
-          <div style={{
-            fontFamily:"DM Mono,monospace", fontSize:13,
-            color:"rgba(255,255,255,0.5)", marginBottom:28
-          }}>Encontrarás el código de 6 dígitos en la botella o en la tarjeta de la cata.</div>
+      )}
+
+      {mode==="manual"&&(
+        <div style={{flex:1,width:"100%",maxWidth:420,padding:"0 22px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+          <div style={{fontFamily:"Fraunces,serif",fontSize:28,fontWeight:800,color:"white",marginBottom:8}}>Introduce el código</div>
+          <div style={{fontFamily:"DM Mono,monospace",fontSize:13,color:"rgba(255,255,255,0.5)",marginBottom:28}}>Código de 6 dígitos de la botella o tarjeta.</div>
           <input
             value={manualCode}
-            onChange={e => setManualCode(e.target.value.toUpperCase())}
-            placeholder="Ej: 482931"
-            maxLength={10}
-            style={{
-              background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.15)",
-              borderRadius:10, padding:"16px 18px", color:"white",
-              fontFamily:"DM Mono,monospace", fontSize:22, letterSpacing:4,
-              outline:"none", width:"100%", textAlign:"center", marginBottom:16
-            }}
-            onKeyDown={e => e.key==="Enter" && manualCode && onResult(manualCode)}
+            onChange={e=>setManualCode(e.target.value.replace(/\D/g,"").slice(0,6))}
+            placeholder="000000"
+            maxLength={6}
+            autoFocus
+            style={{background:"rgba(255,255,255,0.06)",border:"1.5px solid rgba(255,255,255,0.15)",borderRadius:10,padding:"16px",color:"var(--neon)",fontFamily:"DM Mono,monospace",fontSize:24,letterSpacing:6,outline:"none",width:"100%",textAlign:"center",marginBottom:16}}
+            onKeyDown={e=>e.key==="Enter"&&manualCode.length>=3&&onResult(manualCode)}
           />
-          {error && <div style={{color:"#ff4d6d", fontSize:12, marginBottom:16, fontFamily:"DM Mono,monospace"}}>{error}</div>}
-          <button
-            onClick={() => manualCode && onResult(manualCode)}
-            disabled={!manualCode}
-            style={{
-              width:"100%", padding:"16px", background:"var(--neon)", border:"none",
-              borderRadius:10, color:"#060608", fontFamily:"Fraunces,serif",
-              fontSize:15, fontWeight:800, cursor:"pointer", opacity:manualCode?1:0.3
-            }}
-          >ACCEDER A LA CATA →</button>
+          <button onClick={()=>manualCode.length>=3&&onResult(manualCode)} disabled={manualCode.length<3}
+            style={{width:"100%",padding:"16px",background:"var(--neon)",border:"none",borderRadius:10,color:"#060608",fontFamily:"Fraunces,serif",fontSize:15,fontWeight:800,cursor:"pointer",opacity:manualCode.length>=3?1:0.3}}>
+            BUSCAR CATA →
+          </button>
         </div>
       )}
     </div>
@@ -1330,16 +1243,7 @@ export default function App() {
         )}
         {screen==="profile" && <UserProfile user={currentUser} onBack={()=>setScreen(session?"survey":"entry")}/>}
 
-        {/* Demo navigation — hidden in admin */}
-        {!isAdminRoute && (
-          <div className="demo-bar no-print">
-            <span style={{fontSize:10,color:"var(--text-dim)",fontFamily:"DM Mono,monospace",padding:"0 4px"}}>DEMO</span>
-            {[["age","🏠 Inicio"],["entry","📷 Escanear"],["profile","👤 Perfil"]].map(([s,l])=>(
-              <button key={s} className={`demo-btn${screen===s?" on":""}`} onClick={()=>setScreen(s)}>{l}</button>
-            ))}
-            <button className="demo-btn" onClick={()=>setView("login")}>⚡ Admin</button>
-          </div>
-        )}
+     
       </div>
     </>
   );
