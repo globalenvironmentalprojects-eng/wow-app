@@ -1262,8 +1262,15 @@ console.log("QR from URL:", qrFromUrl);
       <div className="app">
         {screen==="age" && <AgeGate onConfirm={async()=>{
   if (initialCode) {
-    const s = await getActiveTastingByCode(initialCode);
-    if (s) { setSession(s); setScreen("mode"); return; }
+    console.log("Buscando con código:", initialCode);
+    try {
+      const s = await getActiveTastingByCode(initialCode);
+      console.log("Sesión encontrada:", s);
+      if (s) { setSession(s); setScreen("mode"); return; }
+      else { console.log("No se encontró sesión activa"); }
+    } catch(e) {
+      console.error("Error:", e);
+    }
   }
   setScreen("entry");
 }}/>} 
