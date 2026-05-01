@@ -1221,8 +1221,12 @@ function AdminLogin({ onLogin }) {
 export default function App() {
   // Detect admin route: /admin or ?admin
   const isAdminRoute = window.location.pathname.includes("/admin") || window.location.search.includes("admin");
+  // Detectar código QR de la URL: /v/CODIGO
+const urlPath = window.location.pathname;
+const qrFromUrl = urlPath.startsWith("/v/") ? urlPath.slice(3) : null;
 
-  const [screen, setScreen] = useState("age"); // age | entry | mode | survey | profile | result
+  const [screen, setScreen] = useState("age");
+  const [initialCode] = useState(qrFromUrl); // age | entry | mode | survey | profile | result
   const [session, setSession] = useState(null);
   const [participant, setParticipant] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
@@ -1255,7 +1259,13 @@ export default function App() {
     <>
       <style>{css}</style>
       <div className="app">
-        {screen==="age" && <AgeGate onConfirm={()=>setScreen("entry")}/>}
+        {screen==="age" && <AgeGate onConfirm={async()=>{
+  if (initialCode) {
+    const s = await getActiveTastingByCode(initialCode);
+    if (s) { setSession(s); setScreen("mode"); return; }
+  }
+  setScreen("entry");
+}}/>} 
         {screen==="entry" && <EntryScreen onSessionFound={s=>{setSession(s);setScreen("mode");}}/>}
         {screen==="mode" && <ParticipationMode onSelect={p=>{setParticipant(p);if(p.mode==="account"&&p.user)setCurrentUser(p.user);setScreen("survey");}}/>}
         {screen==="survey" && session && (
