@@ -50,36 +50,58 @@ async function getActiveTastingByCode(code) {
 // ─── QR SCANNER COMPONENT ─────────────────────────────────────────────────────
 function QRScanner({ onResult, onClose }) {
   const videoRef = useRef(null);
+  const canvasRef = useRef(null);
   const [manualCode, setManualCode] = useState("");
   const [mode, setMode] = useState("camera");
-  const controlsRef = useRef(null);
+  const streamRef = useRef(null);
+  const rafRef = useRef(null);
 
   useEffect(() => {
     if (mode !== "camera") return;
     let active = true;
 
-    import("@zxing/library").then(({ BrowserQRCodeReader }) => {
-      const reader = new BrowserQRCodeReader();
-      reader.decodeFromVideoDevice(null, videoRef.current, (result, err) => {
-        if (result && active) {
-          active = false;
-          onResult(result.getText());
-        }
-      }).then(controls => {
-        controlsRef.current = controls;
-      }).catch(() => setMode("manual"));
-    });
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => {
+        if (!active) { stream.getTracks().forEach(t=>t.stop()); return; }
+        streamRef.current = stream;
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
 
-    return () => {
-      active = false;
-      controlsRef.current?.stop();
-    };
+        const scan = () => {
+          if (!active) return;
+          const video = videoRef.current;
+          const canvas = canvasRef.current;
+          if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(video, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            import("jsqr").then(({ default: jsQR }) => {
+              const code = jsQR(imageData.data, imageData.width, imageData.height);
+              if (code) {
+                active = false;
+                stopCamera();
+                onResult(code.data);
+                return;
+              }
+            });
+          }
+          rafRef.current = requestAnimationFrame(scan);
+        };
+        videoRef.current.onloadedmetadata = () => { rafRef.current = requestAnimationFrame(scan); };
+      })
+      .catch(() => setMode("manual"));
+
+    return () => { active = false; stopCamera(); };
   }, [mode]);
 
-  const close = () => {
-    controlsRef.current?.stop();
-    onClose();
+  const stopCamera = () => {
+    cancelAnimationFrame(rafRef.current);
+    streamRef.current?.getTracks().forEach(t=>t.stop());
   };
+
+  const close = () => { stopCamera(); onClose(); };
 
   return (
     <div style={{position:"fixed",inset:0,background:"#000",zIndex:200,display:"flex",flexDirection:"column",alignItems:"center"}}>
@@ -90,13 +112,14 @@ function QRScanner({ onResult, onClose }) {
 
       <div style={{display:"flex",gap:4,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:10,padding:4,margin:"0 0 16px",width:"calc(100% - 44px)",maxWidth:376}}>
         {[["camera","📷 Cámara"],["manual","⌨️ Manual"]].map(([m,l])=>(
-          <button key={m} onClick={()=>setMode(m)} style={{flex:1,background:mode===m?"var(--neon)":"none",border:"none",color:mode===m?"#000":"rgba(255,255,255,0.6)",padding:"9px 6px",borderRadius:7,cursor:"pointer",fontFamily:"Fraunces,serif",fontSize:12,fontWeight:700}}>{l}</button>
+          <button key={m} onClick={()=>{stopCamera();setMode(m);}} style={{flex:1,background:mode===m?"var(--neon)":"none",border:"none",color:mode===m?"#000":"rgba(255,255,255,0.6)",padding:"9px 6px",borderRadius:7,cursor:"pointer",fontFamily:"Fraunces,serif",fontSize:12,fontWeight:700}}>{l}</button>
         ))}
       </div>
 
       {mode==="camera"&&(
         <div style={{flex:1,width:"100%",maxWidth:420,position:"relative",overflow:"hidden"}}>
-          <video ref={videoRef} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+          <video ref={videoRef} playsInline muted style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+          <canvas ref={canvasRef} style={{display:"none"}}/>
           <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
             <div style={{width:220,height:220,border:"2px solid var(--neon)",boxShadow:"0 0 0 9999px rgba(0,0,0,0.5)",borderRadius:4}}/>
           </div>
