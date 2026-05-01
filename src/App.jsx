@@ -555,21 +555,33 @@ function EntryScreen({ onSessionFound }) {
   const [error, setError] = useState(null);
 
   const handleCode = async (code) => {
-    setShowScanner(false);
-    setLoading(true);
-    setError(null);
-    try {
-      const session = await getActiveTastingByCode(code.trim().toUpperCase());
-      if (session) {
-        onSessionFound(session);
-      } else {
-        setError(`Código "${code}" no encontrado o sin cata activa. Comprueba el código e inténtalo de nuevo.`);
-      }
-    } catch (e) {
-      setError("Error al buscar la cata. Inténtalo de nuevo.");
+  setShowScanner(false);
+  setLoading(true);
+  setError(null);
+  
+  // Limpiar el código — si viene una URL completa extraer solo el parámetro
+  let cleanCode = code.trim();
+  if (cleanCode.includes("?code=")) {
+    cleanCode = cleanCode.split("?code=")[1].split("&")[0];
+  }
+  if (cleanCode.includes("/v/")) {
+    cleanCode = cleanCode.split("/v/")[1];
+  }
+  
+  console.log("Código limpio:", cleanCode);
+  
+  try {
+    const session = await getActiveTastingByCode(cleanCode);
+    if (session) {
+      onSessionFound(session);
+    } else {
+      setError(`Código "${cleanCode}" no encontrado o sin cata activa.`);
     }
-    setLoading(false);
-  };
+  } catch (e) {
+    setError("Error al buscar la cata. Inténtalo de nuevo.");
+  }
+  setLoading(false);
+};
 
   if (showScanner) return <QRScanner onResult={handleCode} onClose={()=>setShowScanner(false)}/>;
 
