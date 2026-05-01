@@ -1224,6 +1224,8 @@ export default function App() {
   // Detectar código QR de la URL: /v/CODIGO
 const urlPath = window.location.pathname;
 const qrFromUrl = urlPath.startsWith("/v/") ? urlPath.slice(3) : null;
+console.log("URL path:", urlPath);
+console.log("QR from URL:", qrFromUrl);
 
   const [screen, setScreen] = useState("age");
   const [initialCode] = useState(qrFromUrl); // age | entry | mode | survey | profile | result
